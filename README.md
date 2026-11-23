@@ -30,7 +30,7 @@ The best validation accuracy is around 20%. That's expected, since many chords a
 ## Running it
 
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt   # use Python 3.10 to 3.13, TensorFlow does not support 3.14 yet
 
 python prepare_data.py   # build data/notes.json (already included)
 python train.py          # train the model (a trained one is already in models/)
