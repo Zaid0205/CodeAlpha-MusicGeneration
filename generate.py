@@ -35,7 +35,8 @@ def sample(probs, temperature):
     return np.random.choice(len(p), p=p)
 
 
-def generate(model, vocab, seed, length=200, temperature=0.8):
+def generate(model, vocab, seed, length=200, temperature=0.8, bias=None):
+    """bias: optional array with one weight per token, used to steer the output."""
     index = {t: i for i, t in enumerate(vocab)}
     window = [index[t] for t in seed if t in index]
     window = window[-SEQ_LEN:]
@@ -43,6 +44,9 @@ def generate(model, vocab, seed, length=200, temperature=0.8):
     for _ in range(length):
         x = np.array([window[-SEQ_LEN:]])
         probs = model(x, training=False).numpy()[0]
+        if bias is not None:
+            probs = probs * bias
+            probs /= probs.sum()
         nxt = sample(probs, temperature)
         out.append(vocab[nxt])
         window.append(nxt)

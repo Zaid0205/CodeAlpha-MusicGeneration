@@ -43,25 +43,38 @@ def midi_to_tokens(path):
     return tokens
 
 
-def voice_chord(names, duration):
-    """Turn pitch classes back into a playable chord: a bass note plus the chord in octave 4."""
-    c = chord.Chord([n + "4" for n in names])
-    bass = pitch.Pitch(c.root().name + "2")
-    return chord.Chord([bass, *c.pitches], quarterLength=duration)
+def voice_chord(names, octave=4):
+    """Turn pitch classes back into pitches: a bass note plus the chord in the given octave."""
+    c = chord.Chord([n + str(octave) for n in names])
+    bass = pitch.Pitch(c.root().name + str(max(octave - 2, 2)))
+    return bass, list(c.pitches)
 
 
-def tokens_to_midi(tokens, path, bpm=90):
+def tokens_to_midi(tokens, path, bpm=90, transpose=0, octave=4, style="block"):
+    """
+    Write tokens to a MIDI file.
+    style="block" plays each chord as one hit, style="arpeggio" holds the bass
+    and runs through the chord notes in eighth notes.
+    """
     out = stream.Stream()
-    out.append(tempo.MetronomeMark(number=bpm))
-    out.append(instrument.Piano())
+    out.insert(0, tempo.MetronomeMark(number=bpm))
+    out.insert(0, instrument.Piano())
+    offset = 0.0
     for tok in tokens:
         name, d = tok.rsplit("_", 1)
         d = float(d)
-        if name == "rest":
-            el = note.Rest(quarterLength=d)
-        else:
-            el = voice_chord(name.split("."), d)
-        out.append(el)
+        if name != "rest":
+            bass, upper = voice_chord(name.split("."), octave)
+            if style == "arpeggio" and d >= 0.5:
+                out.insert(offset, note.Note(bass, quarterLength=d))
+                steps = int(d / 0.5)
+                for i in range(steps):
+                    out.insert(offset + i * 0.5, note.Note(upper[i % len(upper)], quarterLength=0.5))
+            else:
+                out.insert(offset, chord.Chord([bass, *upper], quarterLength=d))
+        offset += d
+    if transpose:
+        out = out.transpose(transpose)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     out.write("midi", fp=str(path))
     return path
